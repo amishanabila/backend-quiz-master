@@ -9,15 +9,11 @@ const pool = mysql.createPool({
     host: process.env.MYSQLHOST,
     port: process.env.MYSQLPORT ,
     user: process.env.MYSQLUSER ,
-    password: process.env.MYSQL_ROOT_PASSWORD ,
+    password: process.env.MYSQLPASSWORD ,
     database: process.env.MYSQLDATABASE ,
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0,
-     ssl: {
-    minVersion: 'TLSv1.2',
-    rejectUnauthorized: false 
-  }
 });
 
 console.log('Passed configuration to MySQL pool. Establishing connections...');

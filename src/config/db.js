@@ -1,7 +1,7 @@
-const mysql = require('mysql2');
-const fs = require('fs');
-const path = require('path');
-const dotenv = require('dotenv');
+// const mysql = require('mysql2');
+// const fs = require('fs');
+// const path = require('path');
+// const dotenv = require('dotenv');
 
 
 // const pool = mysql.createPool({
@@ -41,41 +41,49 @@ const dotenv = require('dotenv');
 
 // console.log('[DB Config] Database pool initialized successfully!');
 
+
+
+
+// module.exports = promisePool;
+
+// 1. Gunakan 'mysql2/promise' agar bisa pakai async/await langsung
+const mysql = require('mysql2/promise'); 
+const fs = require('fs');
+const path = require('path');
+const dotenv = require('dotenv');
+
+// 2. Load environment variables
+dotenv.config(); 
+
+// Konfigurasi Pool
 const promisePool = mysql.createPool({
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  timezone: '+08:00',
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-  ssl: {
-    minVersion: 'TLSv1.2',
-    rejectUnauthorized: false 
-  }
+    host: process.env.DB_HOST,
+    port: process.env.DB_PORT,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0,
+    // Catatan: Railway biasanya tidak butuh SSL complex seperti TiDB, 
+    // tapi jika error SSL, uncomment baris di bawah:
+    // ssl: {
+    //   rejectUnauthorized: false
+    // }
 });
 
-// Tambahkan ini di bawah kode createPool kamu
 const testQuery = async () => {
-  try {
-    const [rows] = await pool.query("SELECT 1 + 1 AS hasil");
-    console.log("✅ Koneksi TiDB Cloud Stabil. Test Query Berhasil, Hasil:", rows[0].hasil);
-  } catch (err) {
-    console.error("❌ Koneksi terdeteksi tapi gagal query:", err.message);
-  }
+    try {
+        // 3. Gunakan promisePool yang benar
+        const [rows] = await promisePool.query("SELECT 1 + 1 AS hasil");
+        
+        // Log disesuaikan karena kamu pakai Railway, bukan TiDB
+        console.log("✅ Koneksi Database Berhasil. Test Query Hasil:", rows[0].hasil);
+    } catch (err) {
+        console.error("❌ Gagal connect ke database:", err.message);
+    }
 };
 
 testQuery();
-// try {
-//   const connection = await pool.getConnection();
-//   console.log(`Connected to database: ${process.env.DB_NAME}`);
-//   connection.release(); 
-  
-// } catch (error) {
-//   console.error("Error connecting to the database:", error.message);
-// }
-
 
 module.exports = promisePool;

@@ -36,6 +36,7 @@ const pool = mysql.createPool({
   }
 });
 
+console.log('Passed configuration to MySQL pool. Establishing connections...');
 // Convert pool to use promises
 const promisePool = pool.promise();
 

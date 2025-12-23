@@ -1,16 +1,11 @@
-const mysql = require('mysql2');
-const fs = require('fs');
-const path = require('path');
-const dotenv = require('dotenv');
-
-
+const mysql = require('mysql2/promise');
 
 const pool = mysql.createPool({
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
-  port: process.env.DB_PORT || 3306,
+  port: parseInt(process.env.DB_PORT) || 3306,
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
@@ -18,30 +13,15 @@ const pool = mysql.createPool({
   keepAliveInitialDelay: 10000 
 });
 
-console.log('Passed configuration to MySQL pool. Establishing connections...');
-// Convert pool to use promises
-const promisePool = pool.promise();
+// Tes koneksi saat aplikasi pertama kali jalan
+(async () => {
+  try {
+    const connection = await pool.getConnection();
+    console.log('✅ Database terhubung dengan sukses ke host:', process.env.DB_HOST);
+    connection.release();
+  } catch (err) {
+    console.error('❌ Database gagal terhubung:', err.message);
+  }
+})();
 
-// Handle pool errors
-pool.on('error', (err) => {
-    console.error('[DB Error] Database pool error:', err.code);
-    if (err.code === 'PROTOCOL_CONNECTION_LOST') {
-        console.error('[DB Error] Database connection was closed.');
-    }
-    if (err.code === 'PROTOCOL_ENQUEUE_AFTER_FATAL_ERROR') {
-        console.error('[DB Error] Database had a fatal error.');
-    }
-    if (err.code === 'PROTOCOL_ENQUEUE_AFTER_QUIT') {
-        console.error('[DB Error] Database connection was manually terminated.');
-    }
-    if (err.code === 'PROTOCOL_PACKETS_OUT_OF_ORDER') {
-        console.error('[DB Error] Database packets out of order.');
-    }
-    if (err.code === 'ECONNREFUSED') {
-        console.error('[DB Error] Database connection refused. Check DB_HOST, DB_PORT and credentials.');
-    }
-});
-
-console.log('[DB Config] Database pool initialized successfully!');
-
-module.exports = promisePool;
+module.exports = pool;

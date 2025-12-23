@@ -3,23 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const dotenv = require('dotenv');
 
-// Load .env.local first (highest priority), then .env
-const envLocalPath = path.join(__dirname, '../../.env.local');
-const envPath = path.join(__dirname, '../../.env');
 
-if (fs.existsSync(envLocalPath)) {
-    dotenv.config({ path: envLocalPath });
-    console.log('[DB Config] Loaded .env.local');
-} else if (fs.existsSync(envPath)) {
-    dotenv.config({ path: envPath });
-    console.log('[DB Config] Loaded .env');
-}
-
-console.log('[DB Config] Initializing database connection...');
-console.log('[DB Config] Environment:', process.env.NODE_ENV || 'development');
-console.log('[DB Config] Host:', process.env.DB_HOST);
-console.log('[DB Config] Port:', process.env.DB_PORT || 3306);
-console.log('[DB Config] Database:', process.env.DB_NAME);
 
 const pool = mysql.createPool({
     host: process.env.MYSQLHOST,

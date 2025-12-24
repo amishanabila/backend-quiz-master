@@ -35,12 +35,27 @@ const app = express();
 app.get('/health', async (req, res) => {
     try {
         const [result] = await db.query('SELECT 1');
+        
+        // Get count of materi
+        const [materiCount] = await db.query('SELECT COUNT(*) as count FROM materi');
+        const [materiWithCreator] = await db.query('SELECT COUNT(*) as count FROM materi WHERE created_by IS NOT NULL');
+        const [materiWithoutCreator] = await db.query('SELECT COUNT(*) as count FROM materi WHERE created_by IS NULL');
+        
+        // Get sample rows
+        const [sampleMateri] = await db.query('SELECT materi_id, judul, created_by FROM materi LIMIT 5');
+        
         res.json({
             status: 'ok',
             database: 'connected',
             timestamp: new Date().toISOString(),
             environment: process.env.NODE_ENV || 'development',
-            uptime: process.uptime()
+            uptime: process.uptime(),
+            diagnostics: {
+                materi_total: materiCount[0]?.count || 0,
+                materi_with_creator: materiWithCreator[0]?.count || 0,
+                materi_without_creator: materiWithoutCreator[0]?.count || 0,
+                sample_rows: sampleMateri
+            }
         });
     } catch (error) {
         console.error('[Health Check] Database error:', error.message);

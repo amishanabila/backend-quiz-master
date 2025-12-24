@@ -709,10 +709,22 @@ const soalController = {
   // Get all kumpulan soal by creator_id - UNTUK DASHBOARD KREATOR
   async getKumpulanSoalByCreator(req, res) {
     try {
-      const created_by = req.user.id || req.user.userId;
+      // 🔥 DEBUG: Check auth
+      console.log('🔍 DEBUG - req.user:', JSON.stringify(req.user, null, 2));
+      
+      const created_by = req.user?.id || req.user?.userId;
       const { kategori_id } = req.query;
 
       console.log('📚 getKumpulanSoalByCreator - created_by:', created_by, 'kategori_id:', kategori_id);
+      
+      if (!created_by) {
+        console.error('❌ CRITICAL: created_by is undefined!');
+        return res.status(400).json({
+          status: 'error',
+          message: 'User ID not found in token',
+          debug: { req_user: req.user }
+        });
+      }
 
       let query = `
         SELECT 
@@ -745,6 +757,10 @@ const soalController = {
       const [kumpulanSoal] = await db.query(query, params);
 
       console.log('📚 Result count:', kumpulanSoal.length);
+      
+      if (!kumpulanSoal || kumpulanSoal.length === 0) {
+        console.warn('⚠️ No kumpulan soal found for creator:', created_by);
+      }
 
       res.json({
         status: 'success',
@@ -761,10 +777,12 @@ const soalController = {
         }))
       });
     } catch (error) {
-      console.error('Error getting kumpulan soal by creator:', error);
+      console.error('❌ Error getting kumpulan soal by creator:', error.message);
+      console.error('Stack:', error.stack);
       res.status(500).json({
         status: 'error',
-        message: 'Terjadi kesalahan saat mengambil kumpulan soal'
+        message: 'Terjadi kesalahan saat mengambil kumpulan soal',
+        error: error.message
       });
     }
   }

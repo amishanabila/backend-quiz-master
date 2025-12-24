@@ -9,6 +9,9 @@ router.post('/kumpulan', auth, soalController.createKumpulanSoal);
 // Get kumpulan soal by id
 router.get('/kumpulan/:id', soalController.getKumpulanSoal);
 
+// Get all kumpulan soal created by current user (dashboard) - PROTECTED
+router.get('/my-kumpulan/all', auth, soalController.getKumpulanSoalByCreator);
+
 // Update kumpulan soal (protected)
 router.put('/kumpulan/:id', auth, soalController.updateKumpulanSoal);
 

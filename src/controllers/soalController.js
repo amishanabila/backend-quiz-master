@@ -704,6 +704,69 @@ const soalController = {
         error: error.message
       });
     }
+  },
+
+  // Get all kumpulan soal by creator_id - UNTUK DASHBOARD KREATOR
+  async getKumpulanSoalByCreator(req, res) {
+    try {
+      const created_by = req.user.id || req.user.userId;
+      const { kategori_id } = req.query;
+
+      console.log('📚 getKumpulanSoalByCreator - created_by:', created_by, 'kategori_id:', kategori_id);
+
+      let query = `
+        SELECT 
+          ks.kumpulan_soal_id,
+          ks.judul,
+          ks.kategori_id,
+          k.nama_kategori,
+          ks.materi_id,
+          ks.created_by,
+          ks.created_at,
+          ks.jumlah_soal,
+          ks.pin_code
+        FROM kumpulan_soal ks
+        LEFT JOIN kategori k ON ks.kategori_id = k.id
+        WHERE ks.created_by = ?
+      `;
+      
+      const params = [created_by];
+
+      if (kategori_id) {
+        query += ' AND ks.kategori_id = ?';
+        params.push(kategori_id);
+      }
+
+      query += ' ORDER BY ks.created_at DESC';
+
+      console.log('📚 Query:', query);
+      console.log('📚 Params:', params);
+
+      const [kumpulanSoal] = await db.query(query, params);
+
+      console.log('📚 Result count:', kumpulanSoal.length);
+
+      res.json({
+        status: 'success',
+        data: kumpulanSoal.map(ks => ({
+          materi_id: ks.kumpulan_soal_id,  // Map kumpulan_soal_id as materi_id untuk compatibility
+          kumpulan_soal_id: ks.kumpulan_soal_id,
+          judul: ks.judul,
+          kategori_id: ks.kategori_id,
+          nama_kategori: ks.nama_kategori,
+          created_by: ks.created_by,
+          created_at: ks.created_at,
+          jumlah_soal: ks.jumlah_soal,
+          pin_code: ks.pin_code
+        }))
+      });
+    } catch (error) {
+      console.error('Error getting kumpulan soal by creator:', error);
+      res.status(500).json({
+        status: 'error',
+        message: 'Terjadi kesalahan saat mengambil kumpulan soal'
+      });
+    }
   }
 };
 

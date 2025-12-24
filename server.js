@@ -55,11 +55,10 @@ app.get('/health', async (req, res) => {
 
 // CORS Configuration
 const allowedOrigins = [
-    'http://localhost:5173',
-    'http://localhost:3000',
-    process.env.FRONTEND_URL,
-    process.env.CORS_ORIGIN
-].filter(Boolean);
+  'http://localhost:5173',
+  'https://backend-quiz-master-production.up.railway.app',
+  'https://ippl-quiz-master.vercel.app' // <--- WAJIB ADA INI
+];
 
 app.use(cors({
     origin: (origin, callback) => {

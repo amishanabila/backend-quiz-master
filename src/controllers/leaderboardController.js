@@ -45,9 +45,13 @@ exports.getLeaderboard = async (req, res) => {
     }
 
     // Filter by created_by (untuk menampilkan hanya hasil dari soal kreator tertentu)
+    // OPTIONAL: jika created_by tidak diberikan, tampilkan SEMUA leaderboard
     if (created_by) {
-      query += ' AND ks.created_by = ?';
+      query += ' AND (ks.created_by = ? OR ks.created_by IS NULL)';
       params.push(created_by);
+      console.log('🔍 Filtering leaderboard by created_by:', created_by);
+    } else {
+      console.log('🔍 Loading ALL leaderboard entries (no creator filter)');
     }
     
     query += `

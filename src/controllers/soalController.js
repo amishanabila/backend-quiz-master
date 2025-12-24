@@ -730,7 +730,8 @@ const soalController = {
           k.nama_kategori,
           ks.created_by,
           ks.created_at,
-          ks.jumlah_soal
+          ks.jumlah_soal,
+          ks.pin_code
         FROM kumpulan_soal ks
         LEFT JOIN kategori k ON ks.kategori_id = k.id
         WHERE ks.created_by = ?
@@ -759,7 +760,8 @@ const soalController = {
           nama_kategori: ks.nama_kategori || 'Unknown',
           created_by: ks.created_by,
           created_at: ks.created_at,
-          jumlah_soal: ks.jumlah_soal || 0
+          jumlah_soal: ks.jumlah_soal || 0,
+          pin_code: ks.pin_code
         }))
       });
     } catch (error) {

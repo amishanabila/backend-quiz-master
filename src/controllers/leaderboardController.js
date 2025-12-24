@@ -1,13 +1,14 @@
 const db = require('../config/db');
 
-// Get leaderboard data with optional kategori, materi, dan created_by filters
+// Get leaderboard data with optional kategori and materi filters (NO created_by filter)
 exports.getLeaderboard = async (req, res) => {
   try {
-    const { kategori_id, materi_id, kumpulan_soal_id, created_by } = req.query;
+    const { kategori_id, materi_id, kumpulan_soal_id } = req.query;
     
-    console.log('📊 getLeaderboard called with filters:', { kategori_id, materi_id, kumpulan_soal_id, created_by });
+    console.log('📊 getLeaderboard called with filters:', { kategori_id, materi_id, kumpulan_soal_id });
 
-    // Raw SQL query with filters - INCLUDE JOIN dengan kumpulan_soal.created_by
+    // Raw SQL query with filters - NO created_by filter
+    // Filter created_by is done in frontend instead
     let query = `
       SELECT 
         hq.nama_peserta,
@@ -43,16 +44,6 @@ exports.getLeaderboard = async (req, res) => {
       query += ' AND hq.kumpulan_soal_id = ?';
       params.push(kumpulan_soal_id);
     }
-
-    // Filter by created_by (untuk menampilkan hanya hasil dari soal kreator tertentu)
-    // OPTIONAL: jika created_by tidak diberikan, tampilkan SEMUA leaderboard
-    if (created_by) {
-      query += ' AND (ks.created_by = ? OR ks.created_by IS NULL)';
-      params.push(created_by);
-      console.log('🔍 Filtering leaderboard by created_by:', created_by);
-    } else {
-      console.log('🔍 Loading ALL leaderboard entries (no creator filter)');
-    }
     
     query += `
       GROUP BY hq.nama_peserta, ks.materi_id, ks.kategori_id, ks.created_by
@@ -85,8 +76,7 @@ exports.getLeaderboard = async (req, res) => {
       filters: {
         kategori_id: kategori_id || null,
         materi_id: materi_id || null,
-        kumpulan_soal_id: kumpulan_soal_id || null,
-        created_by: created_by || null
+        kumpulan_soal_id: kumpulan_soal_id || null
       }
     });
   } catch (error) {

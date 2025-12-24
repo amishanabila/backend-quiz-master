@@ -1,36 +1,25 @@
 const db = require('../config/db');
 
 const materiController = {
-  // Get all materi or filter by kategori dan created_by
+  // Get all materi or filter by kategori (no created_by filter here)
   async getMateri(req, res) {
     try {
-      const { kategori_id, created_by } = req.query;
+      const { kategori_id } = req.query;
       let query = `
         SELECT m.*, k.nama_kategori 
         FROM materi m 
         LEFT JOIN kategori k ON m.kategori_id = k.id
-        WHERE 1=1
       `;
       let params = [];
 
       if (kategori_id) {
-        query += ' AND m.kategori_id = ?';
-        params.push(kategori_id);
-      }
-
-      // OPTIONAL filter: jika created_by diberikan, gunakan
-      // Jika tidak, load SEMUA materi (untuk backward compatibility dengan soal lama)
-      if (created_by) {
-        query += ' AND (m.created_by = ? OR m.created_by IS NULL)';
-        params.push(created_by);
-        console.log('📁 Filtering materi by created_by:', created_by);
-      } else {
-        console.log('📁 Loading ALL materi (no creator filter)');
+        query += ' WHERE m.kategori_id = ?';
+        params = [kategori_id];
       }
 
       const [materi] = await db.query(query, params);
 
-      console.log('✅ Found', materi.length, 'materi', created_by ? `for creator ${created_by}` : '(all)');
+      console.log('✅ Returned', materi.length, 'materi from API');
 
       res.json({
         status: 'success',

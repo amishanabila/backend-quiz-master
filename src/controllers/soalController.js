@@ -709,20 +709,16 @@ const soalController = {
   // Get all kumpulan soal by creator_id - UNTUK DASHBOARD KREATOR
   async getKumpulanSoalByCreator(req, res) {
     try {
-      // 🔥 DEBUG: Check auth
-      console.log('🔍 DEBUG - req.user:', JSON.stringify(req.user, null, 2));
-      
       const created_by = req.user?.id || req.user?.userId;
       const { kategori_id } = req.query;
 
-      console.log('📚 getKumpulanSoalByCreator - created_by:', created_by, 'kategori_id:', kategori_id);
+      console.log('📚 getKumpulanSoalByCreator - created_by:', created_by);
       
       if (!created_by) {
-        console.error('❌ CRITICAL: created_by is undefined!');
-        return res.status(400).json({
+        console.error('❌ ERROR: created_by is undefined');
+        return res.status(401).json({
           status: 'error',
-          message: 'User ID not found in token',
-          debug: { req_user: req.user }
+          message: 'Unauthorized - User ID not found'
         });
       }
 
@@ -732,11 +728,9 @@ const soalController = {
           ks.judul,
           ks.kategori_id,
           k.nama_kategori,
-          ks.materi_id,
           ks.created_by,
           ks.created_at,
-          ks.jumlah_soal,
-          ks.pin_code
+          ks.jumlah_soal
         FROM kumpulan_soal ks
         LEFT JOIN kategori k ON ks.kategori_id = k.id
         WHERE ks.created_by = ?
@@ -751,38 +745,28 @@ const soalController = {
 
       query += ' ORDER BY ks.created_at DESC';
 
-      console.log('📚 Query:', query);
-      console.log('📚 Params:', params);
-
       const [kumpulanSoal] = await db.query(query, params);
 
-      console.log('📚 Result count:', kumpulanSoal.length);
-      
-      if (!kumpulanSoal || kumpulanSoal.length === 0) {
-        console.warn('⚠️ No kumpulan soal found for creator:', created_by);
-      }
+      console.log('📚 Found', kumpulanSoal.length, 'kumpulan soal for creator', created_by);
 
       res.json({
         status: 'success',
         data: kumpulanSoal.map(ks => ({
-          materi_id: ks.kumpulan_soal_id,  // Map kumpulan_soal_id as materi_id untuk compatibility
           kumpulan_soal_id: ks.kumpulan_soal_id,
+          materi_id: ks.kumpulan_soal_id,
           judul: ks.judul,
           kategori_id: ks.kategori_id,
-          nama_kategori: ks.nama_kategori,
+          nama_kategori: ks.nama_kategori || 'Unknown',
           created_by: ks.created_by,
           created_at: ks.created_at,
-          jumlah_soal: ks.jumlah_soal,
-          pin_code: ks.pin_code
+          jumlah_soal: ks.jumlah_soal || 0
         }))
       });
     } catch (error) {
-      console.error('❌ Error getting kumpulan soal by creator:', error.message);
-      console.error('Stack:', error.stack);
+      console.error('❌ Error in getKumpulanSoalByCreator:', error.message);
       res.status(500).json({
         status: 'error',
-        message: 'Terjadi kesalahan saat mengambil kumpulan soal',
-        error: error.message
+        message: 'Failed to fetch kumpulan soal'
       });
     }
   }

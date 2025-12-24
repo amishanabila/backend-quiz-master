@@ -1,11 +1,19 @@
 const db = require('../config/db');
 
-// Get leaderboard data with optional kategori, materi, dan created_by filters
+// Get leaderboard data - MUST filter by created_by for data isolation
 exports.getLeaderboard = async (req, res) => {
   try {
     const { kategori_id, materi_id, kumpulan_soal_id, created_by } = req.query;
     
     console.log('📊 getLeaderboard called with filters:', { kategori_id, materi_id, kumpulan_soal_id, created_by });
+
+    // 🔒 SECURITY: created_by is REQUIRED to prevent data leakage between creators
+    if (!created_by) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'created_by parameter is required for data security'
+      });
+    }
 
     // Simplified SQL query - GROUP BY hanya nama_peserta untuk consistency
     let query = `
@@ -19,9 +27,11 @@ exports.getLeaderboard = async (req, res) => {
       FROM hasil_quiz hq
       JOIN kumpulan_soal ks ON hq.kumpulan_soal_id = ks.kumpulan_soal_id
       WHERE hq.completed_at IS NOT NULL
+        AND ks.created_by = ?
     `;
     
-    const params = [];
+    const params = [created_by];
+    console.log('🔒 Filtering leaderboard by created_by:', created_by);
     
     // Filter by kategori_id
     if (kategori_id) {
@@ -39,13 +49,6 @@ exports.getLeaderboard = async (req, res) => {
     if (kumpulan_soal_id) {
       query += ' AND hq.kumpulan_soal_id = ?';
       params.push(kumpulan_soal_id);
-    }
-
-    // Filter by created_by - OPTIONAL
-    if (created_by) {
-      query += ' AND ks.created_by = ?';
-      params.push(created_by);
-      console.log('🔍 Filtering leaderboard by created_by:', created_by);
     }
     
     query += `
@@ -89,9 +92,20 @@ exports.getLeaderboard = async (req, res) => {
   }
 };
 
-// Get kategori list with quiz count
+// Get kategori list with quiz count - FILTERED BY CREATOR
 exports.getKategoriWithStats = async (req, res) => {
   try {
+    const { created_by } = req.query;
+    
+    console.log('📋 getKategoriWithStats - created_by:', created_by);
+    
+    if (!created_by) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'created_by parameter is required'
+      });
+    }
+    
     const [results] = await db.query(`
       SELECT 
         k.id as kategori_id,
@@ -99,12 +113,12 @@ exports.getKategoriWithStats = async (req, res) => {
         COUNT(DISTINCT ks.kumpulan_soal_id) as total_kumpulan_soal,
         COUNT(DISTINCT ha.hasil_id) as total_hasil
       FROM kategori k
-      LEFT JOIN kumpulan_soal ks ON k.id = ks.kategori_id
+      LEFT JOIN kumpulan_soal ks ON k.id = ks.kategori_id AND ks.created_by = ?
       LEFT JOIN hasil_quiz ha ON ks.kumpulan_soal_id = ha.kumpulan_soal_id
       GROUP BY k.id, k.nama_kategori
       HAVING total_kumpulan_soal > 0
       ORDER BY k.nama_kategori ASC
-    `);
+    `, [created_by]);
 
     res.json({
       status: 'success',
@@ -119,10 +133,19 @@ exports.getKategoriWithStats = async (req, res) => {
   }
 };
 
-// Get materi list by kategori with quiz count
+// Get materi list by kategori with quiz count - FILTERED BY CREATOR
 exports.getMateriByKategori = async (req, res) => {
   try {
-    const { kategori_id } = req.query;
+    const { kategori_id, created_by } = req.query;
+    
+    console.log('📋 getMateriByKategori - created_by:', created_by, 'kategori_id:', kategori_id);
+    
+    if (!created_by) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'created_by parameter is required'
+      });
+    }
     
     let query = `
       SELECT 
@@ -134,11 +157,11 @@ exports.getMateriByKategori = async (req, res) => {
         COUNT(DISTINCT ha.hasil_id) as total_hasil
       FROM materi m
       JOIN kategori k ON m.kategori_id = k.id
-      LEFT JOIN kumpulan_soal ks ON m.materi_id = ks.materi_id
+      LEFT JOIN kumpulan_soal ks ON m.materi_id = ks.materi_id AND ks.created_by = ?
       LEFT JOIN hasil_quiz ha ON ks.kumpulan_soal_id = ha.kumpulan_soal_id
     `;
 
-    const params = [];
+    const params = [created_by];
 
     if (kategori_id) {
       query += ` WHERE k.id = ?`;

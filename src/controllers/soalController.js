@@ -459,7 +459,7 @@ const soalController = {
       const [kumpulanSoal] = await db.query(
         `SELECT ks.kumpulan_soal_id, ks.judul, ks.kategori_id, k.nama_kategori, 
                 ks.materi_id, m.judul as materi_judul, ks.jumlah_soal, 
-                ks.waktu_per_soal, ks.waktu_keseluruhan, ks.tipe_waktu, ks.created_at
+                ks.waktu_per_soal, ks.waktu_keseluruhan, ks.tipe_waktu, ks.pin_code, ks.created_at
          FROM kumpulan_soal ks 
          JOIN kategori k ON ks.kategori_id = k.id
          LEFT JOIN materi m ON ks.materi_id = m.materi_id

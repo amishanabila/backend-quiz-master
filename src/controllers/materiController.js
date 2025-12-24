@@ -1,25 +1,35 @@
 const db = require('../config/db');
 
 const materiController = {
-  // Get all materi or filter by kategori (no created_by filter here)
+  // Get all materi or filter by kategori dan created_by
   async getMateri(req, res) {
     try {
-      const { kategori_id } = req.query;
+      const { kategori_id, created_by } = req.query;
       let query = `
         SELECT m.*, k.nama_kategori 
         FROM materi m 
         LEFT JOIN kategori k ON m.kategori_id = k.id
+        WHERE 1=1
       `;
       let params = [];
 
       if (kategori_id) {
-        query += ' WHERE m.kategori_id = ?';
-        params = [kategori_id];
+        query += ' AND m.kategori_id = ?';
+        params.push(kategori_id);
       }
 
-      const [materi] = await db.query(query, params);
+      // OPTIONAL filter - jika created_by diberikan, gunakan
+      if (created_by) {
+        query += ' AND m.created_by = ?';
+        params.push(created_by);
+      }
 
-      console.log('✅ Returned', materi.length, 'materi from API');
+      console.log('📚 getMateri - Query:', query);
+      console.log('📚 getMateri - Params:', params);
+      
+      const [materi] = await db.query(query, params);
+      
+      console.log('📚 getMateri - Result count:', materi.length, 'rows');
 
       res.json({
         status: 'success',

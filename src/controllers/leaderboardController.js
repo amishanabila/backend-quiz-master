@@ -1,14 +1,13 @@
 const db = require('../config/db');
 
-// Get leaderboard data with optional kategori and materi filters (NO created_by filter)
+// Get leaderboard data with optional kategori, materi, dan created_by filters
 exports.getLeaderboard = async (req, res) => {
   try {
-    const { kategori_id, materi_id, kumpulan_soal_id } = req.query;
+    const { kategori_id, materi_id, kumpulan_soal_id, created_by } = req.query;
     
-    console.log('📊 getLeaderboard called with filters:', { kategori_id, materi_id, kumpulan_soal_id });
+    console.log('📊 getLeaderboard called with filters:', { kategori_id, materi_id, kumpulan_soal_id, created_by });
 
-    // Raw SQL query with filters - NO created_by filter
-    // Filter created_by is done in frontend instead
+    // Simplified SQL query - GROUP BY hanya nama_peserta untuk consistency
     let query = `
       SELECT 
         hq.nama_peserta,
@@ -16,10 +15,7 @@ exports.getLeaderboard = async (req, res) => {
         SUM(hq.total_soal) as jumlah_jawaban,
         AVG(hq.skor) as rata_rata_skor,
         AVG(hq.waktu_pengerjaan) as rata_waktu,
-        COUNT(DISTINCT hq.hasil_id) as total_quiz_diikuti,
-        ks.materi_id,
-        ks.kategori_id,
-        ks.created_by
+        COUNT(DISTINCT hq.hasil_id) as total_quiz_diikuti
       FROM hasil_quiz hq
       JOIN kumpulan_soal ks ON hq.kumpulan_soal_id = ks.kumpulan_soal_id
       WHERE hq.completed_at IS NOT NULL
@@ -44,9 +40,16 @@ exports.getLeaderboard = async (req, res) => {
       query += ' AND hq.kumpulan_soal_id = ?';
       params.push(kumpulan_soal_id);
     }
+
+    // Filter by created_by - OPTIONAL
+    if (created_by) {
+      query += ' AND ks.created_by = ?';
+      params.push(created_by);
+      console.log('🔍 Filtering leaderboard by created_by:', created_by);
+    }
     
     query += `
-      GROUP BY hq.nama_peserta, ks.materi_id, ks.kategori_id, ks.created_by
+      GROUP BY hq.nama_peserta
       ORDER BY jumlah_benar DESC, rata_rata_skor DESC
       LIMIT 100
     `;
@@ -62,10 +65,7 @@ exports.getLeaderboard = async (req, res) => {
       total_soal: r.jumlah_jawaban || 0,
       waktu_pengerjaan: Math.round(r.rata_waktu || 0),
       skor_persen: r.jumlah_jawaban > 0 ? Math.round((r.jumlah_benar / r.jumlah_jawaban) * 100) : 0,
-      total_quiz_diikuti: r.total_quiz_diikuti || 0,
-      materi_id: r.materi_id,
-      kategori_id: r.kategori_id,
-      created_by: r.created_by
+      total_quiz_diikuti: r.total_quiz_diikuti || 0
     }));
 
     console.log('✅ Found', formattedResults.length, 'leaderboard entries');
@@ -76,7 +76,8 @@ exports.getLeaderboard = async (req, res) => {
       filters: {
         kategori_id: kategori_id || null,
         materi_id: materi_id || null,
-        kumpulan_soal_id: kumpulan_soal_id || null
+        kumpulan_soal_id: kumpulan_soal_id || null,
+        created_by: created_by || null
       }
     });
   } catch (error) {

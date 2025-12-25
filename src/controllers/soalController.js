@@ -56,6 +56,13 @@ const soalController = {
 
         // Insert individual soal dengan validasi
         for (const soal of soal_list) {
+          console.log('🔍 Processing soal:', {
+            pertanyaan: soal.pertanyaan?.substring(0, 50),
+            jawaban_benar: soal.jawaban_benar,
+            jawaban_type: typeof soal.jawaban_benar,
+            is_array: Array.isArray(soal.jawaban_benar)
+          });
+          
           // Handle array jawaban (untuk isian singkat) atau string (untuk pilihan ganda/essay)
           let jawabanBenar;
           let variasiJawaban = null;
@@ -79,13 +86,20 @@ const soalController = {
             }
           }
           
-          // Validasi: Untuk pilihan ganda, jawaban harus salah satu dari pilihan
+          // Validasi: Untuk pilihan ganda, jawaban harus salah satu dari pilihan (case-insensitive)
           if (soal.pilihan_a && soal.pilihan_b) {
-            const pilihan = [soal.pilihan_a, soal.pilihan_b, soal.pilihan_c, soal.pilihan_d, soal.pilihan_e].filter(p => p);
-            if (!pilihan.includes(jawabanBenar)) {
-              throw new Error(`Soal "${soal.pertanyaan}" memiliki jawaban benar yang tidak sesuai dengan pilihan. Jawaban harus salah satu dari: ${pilihan.join(', ')}`);
+            const pilihan = [soal.pilihan_a, soal.pilihan_b, soal.pilihan_c, soal.pilihan_d, soal.pilihan_e].filter(p => p && p.trim() !== '');
+            const pilihanLower = pilihan.map(p => p.trim().toLowerCase());
+            const jawabanLower = jawabanBenar.toLowerCase().trim();
+            
+            if (!pilihanLower.includes(jawabanLower)) {
+              console.warn(`⚠️ Jawaban tidak cocok dengan pilihan untuk soal: ${soal.pertanyaan}`);
+              console.warn(`Jawaban: "${jawabanBenar}", Pilihan:`, pilihan);
+              // Tidak throw error, hanya warning - biarkan user bebas input jawaban
             }
           }
+          
+          console.log('✅ Inserting soal with jawaban:', jawabanBenar);
           
           await connection.query(
             'INSERT INTO soal (kumpulan_soal_id, pertanyaan, gambar, pilihan_a, pilihan_b, pilihan_c, pilihan_d, pilihan_e, jawaban_benar, variasi_jawaban) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
@@ -121,13 +135,18 @@ const soalController = {
       } catch (error) {
         // Rollback in case of error
         await connection.rollback();
+        console.error('❌ Error in transaction:', error);
         throw error;
       }
     } catch (error) {
-      console.error('Error creating kumpulan soal:', error);
+      console.error('❌ Error creating kumpulan soal:', error);
+      console.error('❌ Error stack:', error.stack);
+      console.error('❌ Error message:', error.message);
+      
       res.status(500).json({
         status: 'error',
-        message: 'Terjadi kesalahan saat membuat kumpulan soal'
+        message: error.message || 'Terjadi kesalahan saat membuat kumpulan soal',
+        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
       });
     } finally {
       connection.release();

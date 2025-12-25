@@ -88,7 +88,7 @@ const soalController = {
           
           // Validasi: Untuk pilihan ganda, jawaban harus salah satu dari pilihan (case-insensitive)
           if (soal.pilihan_a && soal.pilihan_b) {
-            const pilihan = [soal.pilihan_a, soal.pilihan_b, soal.pilihan_c, soal.pilihan_d, soal.pilihan_e].filter(p => p && p.trim() !== '');
+            const pilihan = [soal.pilihan_a, soal.pilihan_b, soal.pilihan_c, soal.pilihan_d].filter(p => p && p.trim() !== '');
             const pilihanLower = pilihan.map(p => p.trim().toLowerCase());
             const jawabanLower = jawabanBenar.toLowerCase().trim();
             
@@ -102,8 +102,8 @@ const soalController = {
           console.log('✅ Inserting soal with jawaban:', jawabanBenar);
           
           await connection.query(
-            'INSERT INTO soal (kumpulan_soal_id, pertanyaan, gambar, pilihan_a, pilihan_b, pilihan_c, pilihan_d, pilihan_e, jawaban_benar, variasi_jawaban) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [kumpulan_soal_id, soal.pertanyaan, soal.gambar || null, soal.pilihan_a, soal.pilihan_b, soal.pilihan_c, soal.pilihan_d, soal.pilihan_e, jawabanBenar, variasiJawaban]
+            'INSERT INTO soal (kumpulan_soal_id, pertanyaan, gambar, pilihan_a, pilihan_b, pilihan_c, pilihan_d, jawaban_benar, variasi_jawaban) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [kumpulan_soal_id, soal.pertanyaan, soal.gambar || null, soal.pilihan_a, soal.pilihan_b, soal.pilihan_c, soal.pilihan_d, jawabanBenar, variasiJawaban]
           );
         }
 
@@ -173,7 +173,7 @@ const soalController = {
 
       // Get soal list dengan gambar dan variasi_jawaban
       const [soal] = await db.query(
-        'SELECT soal_id, pertanyaan, gambar, pilihan_a, pilihan_b, pilihan_c, pilihan_d, pilihan_e, jawaban_benar, variasi_jawaban FROM soal WHERE kumpulan_soal_id = ?',
+        'SELECT soal_id, pertanyaan, gambar, pilihan_a, pilihan_b, pilihan_c, pilihan_d, jawaban_benar, variasi_jawaban FROM soal WHERE kumpulan_soal_id = ?',
         [id]
       );
 
@@ -437,7 +437,7 @@ const soalController = {
 
       // Get soal list
       const [soal] = await db.query(
-        'SELECT soal_id, pertanyaan, gambar, pilihan_a, pilihan_b, pilihan_c, pilihan_d, pilihan_e, jawaban_benar, variasi_jawaban FROM soal WHERE kumpulan_soal_id = ?',
+        'SELECT soal_id, pertanyaan, gambar, pilihan_a, pilihan_b, pilihan_c, pilihan_d, jawaban_benar, variasi_jawaban FROM soal WHERE kumpulan_soal_id = ?',
         [kumpulanSoal[0].kumpulan_soal_id]
       );
 
@@ -500,7 +500,7 @@ const soalController = {
 
       // Get soal list
       const [soal] = await db.query(
-        'SELECT soal_id, pertanyaan, gambar, pilihan_a, pilihan_b, pilihan_c, pilihan_d, pilihan_e, jawaban_benar, variasi_jawaban FROM soal WHERE kumpulan_soal_id = ? ORDER BY soal_id',
+        'SELECT soal_id, pertanyaan, gambar, pilihan_a, pilihan_b, pilihan_c, pilihan_d, jawaban_benar, variasi_jawaban FROM soal WHERE kumpulan_soal_id = ? ORDER BY soal_id',
         [kumpulanSoalId]
       );
 

@@ -213,20 +213,26 @@ const authController = {
       );
       console.log('✅ Reset token saved to database');
 
-      // Send reset email
-      console.log('📧 Attempting to send reset password email...');
-      console.log('📧 Email config check:', {
-        EMAIL_USER: process.env.EMAIL_USER ? '✅ Set' : '❌ Not set',
-        EMAIL_PASSWORD: process.env.EMAIL_PASSWORD ? '✅ Set' : '❌ Not set',
-        FRONTEND_URL: process.env.FRONTEND_URL || 'Using default'
-      });
-      
-      await emailService.sendPasswordResetEmail(email, resetToken);
-      console.log('✅ Reset password email sent successfully to:', email);
+      // Try to send reset email (optional - don't fail if email fails)
+      try {
+        console.log('📧 Attempting to send reset password email...');
+        console.log('📧 Email config check:', {
+          EMAIL_USER: process.env.EMAIL_USER ? '✅ Set' : '❌ Not set',
+          EMAIL_PASSWORD: process.env.EMAIL_PASSWORD ? '✅ Set' : '❌ Not set',
+          FRONTEND_URL: process.env.FRONTEND_URL || 'Using default'
+        });
+        
+        await emailService.sendPasswordResetEmail(email, resetToken);
+        console.log('✅ Reset password email sent successfully to:', email);
+      } catch (emailError) {
+        console.error('⚠️ Email sending failed (non-critical):', emailError.message);
+        // Don't throw error - email is optional since we return token directly
+      }
 
+      // Return success with token (email is backup, not required)
       res.json({
         status: 'success',
-        message: 'Email reset password telah dikirim',
+        message: 'Silakan buat password baru',
         token: resetToken  // Return token untuk digunakan langsung di frontend
       });
     } catch (error) {

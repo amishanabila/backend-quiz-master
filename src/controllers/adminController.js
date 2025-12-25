@@ -225,6 +225,7 @@ const exportSoal = async (req, res) => {
         s.pilihan_b,
         s.pilihan_c,
         s.pilihan_d,
+        s.pilihan_e,
         s.jawaban_benar,
         s.variasi_jawaban,
         ks.judul as kumpulan_soal_judul,

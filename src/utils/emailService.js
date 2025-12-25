@@ -45,28 +45,96 @@ const emailService = {
             console.log('📤 Sending email via Resend HTTPS API (no SMTP!)...');
             
             const { data, error } = await resend.emails.send({
-                from: 'IPPL Quiz Master <onboarding@resend.dev>', // Free tier uses resend.dev domain
+                from: 'Quiz Master <onboarding@resend.dev>',
+                replyTo: 'noreply@quizmaster.com',
                 to: [email],
-                subject: 'Reset Password - IPPL Quiz Master',
+                subject: '🔐 Reset Password - Quiz Master',
+                text: `Reset Password Quiz Master\n\nAnda telah meminta reset password. Klik link berikut:\n${resetLink}\n\nLink berlaku 1 jam.\nJika bukan Anda yang meminta, abaikan email ini.`,
                 html: `
-                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                        <h2 style="color: #333;">Reset Password</h2>
-                        <p>Anda telah meminta untuk mereset password akun Anda di IPPL Quiz Master.</p>
-                        <p>Silakan klik link di bawah ini untuk membuat password baru:</p>
-                        <div style="margin: 20px 0;">
-                            <a href="${resetLink}" style="background-color: #ff9900; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">
-                                Reset Password
-                            </a>
-                        </div>
-                        <p style="color: #666; font-size: 12px;">Atau copy link ini ke browser Anda:</p>
-                        <p style="background-color: #f0f0f0; padding: 10px; border-radius: 5px; word-break: break-all;">
-                            ${resetLink}
-                        </p>
-                        <p style="color: #999; font-size: 12px;">
-                            <strong>Penting:</strong> Link ini akan kadaluarsa dalam 1 jam.<br>
-                            Jika Anda tidak meminta reset password, abaikan email ini.
-                        </p>
-                    </div>
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reset Password Quiz Master</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f4f4f4; font-family: 'Segoe UI', Arial, sans-serif;">
+    <table role="presentation" style="width: 100%; border-collapse: collapse;">
+        <tr>
+            <td style="padding: 40px 0; text-align: center;">
+                <table role="presentation" style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    <!-- Header -->
+                    <tr>
+                        <td style="padding: 40px 40px 20px; text-align: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px 8px 0 0;">
+                            <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 600;">🔐 Reset Password</h1>
+                        </td>
+                    </tr>
+                    
+                    <!-- Body -->
+                    <tr>
+                        <td style="padding: 40px;">
+                            <p style="margin: 0 0 20px; color: #333333; font-size: 16px; line-height: 1.6;">
+                                Halo,
+                            </p>
+                            <p style="margin: 0 0 20px; color: #333333; font-size: 16px; line-height: 1.6;">
+                                Kami menerima permintaan untuk mereset password akun Quiz Master Anda.
+                            </p>
+                            <p style="margin: 0 0 30px; color: #333333; font-size: 16px; line-height: 1.6;">
+                                Klik tombol di bawah ini untuk membuat password baru:
+                            </p>
+                            
+                            <!-- CTA Button -->
+                            <table role="presentation" style="margin: 0 auto;">
+                                <tr>
+                                    <td style="border-radius: 6px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                                        <a href="${resetLink}" style="display: inline-block; padding: 16px 40px; color: #ffffff; text-decoration: none; font-size: 16px; font-weight: 600; border-radius: 6px;">
+                                            Reset Password Sekarang
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <p style="margin: 30px 0 20px; color: #666666; font-size: 14px; line-height: 1.6;">
+                                Atau copy dan paste link berikut ke browser Anda:
+                            </p>
+                            <p style="margin: 0 0 30px; padding: 15px; background-color: #f8f9fa; border-left: 4px solid #667eea; color: #333333; font-size: 13px; word-break: break-all; border-radius: 4px;">
+                                ${resetLink}
+                            </p>
+                            
+                            <!-- Security Notice -->
+                            <table role="presentation" style="width: 100%; background-color: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px; margin: 20px 0;">
+                                <tr>
+                                    <td style="padding: 15px;">
+                                        <p style="margin: 0 0 10px; color: #856404; font-size: 14px; font-weight: 600;">
+                                            ⚠️ Perhatian Keamanan
+                                        </p>
+                                        <p style="margin: 0; color: #856404; font-size: 13px; line-height: 1.5;">
+                                            Link ini hanya berlaku selama <strong>1 jam</strong> dan hanya bisa digunakan sekali.<br>
+                                            Jika Anda tidak meminta reset password, abaikan email ini dan akun Anda akan tetap aman.
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
+                    <!-- Footer -->
+                    <tr>
+                        <td style="padding: 30px 40px; background-color: #f8f9fa; border-radius: 0 0 8px 8px; border-top: 1px solid #e9ecef;">
+                            <p style="margin: 0 0 10px; color: #6c757d; font-size: 13px; line-height: 1.6; text-align: center;">
+                                Email ini dikirim secara otomatis oleh sistem Quiz Master.
+                            </p>
+                            <p style="margin: 0; color: #6c757d; font-size: 12px; text-align: center;">
+                                © 2025 Quiz Master. All rights reserved.
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
                 `
             });
             

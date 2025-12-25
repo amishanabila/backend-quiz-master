@@ -226,7 +226,8 @@ const authController = {
 
       res.json({
         status: 'success',
-        message: 'Email reset password telah dikirim'
+        message: 'Email reset password telah dikirim',
+        token: resetToken  // Return token untuk digunakan langsung di frontend
       });
     } catch (error) {
       console.error('❌ Reset password request error:', error);

@@ -3,25 +3,28 @@ const nodemailer = require('nodemailer');
 let transporter;
 
 try {
-    // Use explicit SMTP config instead of 'service: gmail' to avoid Railway network issues
+    // Use port 465 (SSL) as Railway might block port 587
     transporter = nodemailer.createTransport({
         host: 'smtp.gmail.com',
-        port: 587, // Use 587 (TLS) instead of 465 (SSL) - better for Railway
-        secure: false, // true for 465, false for other ports
+        port: 465, // Use 465 (SSL) - more reliable for Railway
+        secure: true, // true for 465
         auth: {
             user: process.env.EMAIL_USER,
             pass: process.env.EMAIL_PASSWORD
         },
         tls: {
-            rejectUnauthorized: false // Allow self-signed certificates (Railway compatibility)
+            rejectUnauthorized: false
         },
-        connectionTimeout: 10000, // 10 seconds
-        greetingTimeout: 10000,
-        socketTimeout: 10000,
-        debug: true, // Enable debug logs
+        connectionTimeout: 15000, // 15 seconds
+        greetingTimeout: 15000,
+        socketTimeout: 15000,
+        pool: true, // Use pooled connections
+        maxConnections: 5,
+        maxMessages: 10,
+        debug: true,
         logger: true
     });
-    console.log('✅ Email transporter created successfully with SMTP config');
+    console.log('✅ Email transporter created with SSL port 465');
 } catch (error) {
     console.error('❌ Error creating email transporter:', error);
 }
@@ -90,44 +93,41 @@ const emailService = {
             };
 
             console.log('📤 Sending email via SMTP...');
-            console.log('🔐 Verifying SMTP connection...');
             console.log('🔐 EMAIL_USER:', process.env.EMAIL_USER);
             console.log('🔐 EMAIL_PASSWORD length:', process.env.EMAIL_PASSWORD ? process.env.EMAIL_PASSWORD.length : 0);
-            console.log('🔐 EMAIL_PASSWORD (masked):', process.env.EMAIL_PASSWORD ? process.env.EMAIL_PASSWORD.substring(0, 4) + '****' : 'NOT SET');
             
-            // Verify connection first
-            try {
-                await transporter.verify();
-                console.log('✅ SMTP connection verified successfully!');
-            } catch (verifyError) {
-                console.error('❌ SMTP verification failed:', verifyError);
-                console.error('❌ Error code:', verifyError.code);
-                console.error('❌ Error response:', verifyError.response);
-                console.error('❌ Error responseCode:', verifyError.responseCode);
-                throw new Error(`SMTP verification failed: ${verifyError.message}. Kemungkinan EMAIL_PASSWORD salah atau bukan App Password.`);
-            }
+            // Skip verification, send directly (Railway firewall might block verification)
+            console.log('⚠️ Skipping SMTP verification due to Railway network restrictions');
+            console.log('📧 Sending email directly...');
             
-            // Send email with retry
+            // Send email with extended retry and better error handling
             let lastError;
-            for (let attempt = 1; attempt <= 3; attempt++) {
+            for (let attempt = 1; attempt <= 5; attempt++) {
                 try {
-                    console.log(`📧 Attempt ${attempt} to send email...`);
+                    console.log(`📧 Attempt ${attempt}/5 to send email...`);
                     const info = await transporter.sendMail(mailOptions);
                     console.log('✅ Password reset email sent successfully!');
                     console.log('📧 Message ID:', info.messageId);
                     console.log('📧 Response:', info.response);
+                    console.log('📧 Accepted:', info.accepted);
+                    console.log('📧 Rejected:', info.rejected);
                     return; // Success!
                 } catch (sendError) {
                     console.error(`❌ Attempt ${attempt} failed:`, sendError.message);
+                    console.error(`❌ Error code:`, sendError.code);
+                    console.error(`❌ Error command:`, sendError.command);
                     lastError = sendError;
-                    if (attempt < 3) {
-                        console.log(`⏳ Waiting 2 seconds before retry...`);
-                        await new Promise(resolve => setTimeout(resolve, 2000));
+                    
+                    if (attempt < 5) {
+                        const waitTime = attempt * 3000; // Progressive backoff: 3s, 6s, 9s, 12s
+                        console.log(`⏳ Waiting ${waitTime/1000} seconds before retry...`);
+                        await new Promise(resolve => setTimeout(resolve, waitTime));
                     }
                 }
             }
             
             // All attempts failed
+            console.error('❌ All 5 attempts failed to send email');
             throw lastError;
             
         } catch (error) {

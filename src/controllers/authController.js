@@ -235,19 +235,14 @@ const authController = {
         stack: error.stack
       });
       
-      // Check if it's an email sending error
-      if (error.message && error.message.includes('email')) {
-        return res.status(500).json({
-          status: 'error',
-          message: 'Gagal mengirim email. Silakan coba lagi atau hubungi administrator.',
-          details: process.env.NODE_ENV === 'development' ? error.message : undefined
-        });
-      }
-      
-      res.status(500).json({
+      // Always return detailed error for debugging
+      return res.status(500).json({
         status: 'error',
-        message: 'Terjadi kesalahan saat memproses permintaan reset password',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        message: 'Gagal mengirim email reset password. ' + error.message,
+        errorCode: error.code || 'UNKNOWN',
+        errorCommand: error.command || 'UNKNOWN',
+        details: error.message,
+        suggestion: 'Pastikan EMAIL_PASSWORD di Railway adalah Gmail App Password (16 digit), bukan password Gmail biasa. Generate di: https://myaccount.google.com/security -> App passwords'
       });
     }
   },

@@ -90,10 +90,22 @@ const emailService = {
             };
 
             console.log('📤 Sending email via SMTP...');
+            console.log('🔐 Verifying SMTP connection...');
+            console.log('🔐 EMAIL_USER:', process.env.EMAIL_USER);
+            console.log('🔐 EMAIL_PASSWORD length:', process.env.EMAIL_PASSWORD ? process.env.EMAIL_PASSWORD.length : 0);
+            console.log('🔐 EMAIL_PASSWORD (masked):', process.env.EMAIL_PASSWORD ? process.env.EMAIL_PASSWORD.substring(0, 4) + '****' : 'NOT SET');
             
             // Verify connection first
-            await transporter.verify();
-            console.log('✅ SMTP connection verified');
+            try {
+                await transporter.verify();
+                console.log('✅ SMTP connection verified successfully!');
+            } catch (verifyError) {
+                console.error('❌ SMTP verification failed:', verifyError);
+                console.error('❌ Error code:', verifyError.code);
+                console.error('❌ Error response:', verifyError.response);
+                console.error('❌ Error responseCode:', verifyError.responseCode);
+                throw new Error(`SMTP verification failed: ${verifyError.message}. Kemungkinan EMAIL_PASSWORD salah atau bukan App Password.`);
+            }
             
             // Send email with retry
             let lastError;

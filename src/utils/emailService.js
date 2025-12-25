@@ -1,13 +1,11 @@
-const SibApiV3Sdk = require('@getbrevo/brevo');
+const { Resend } = require('resend');
 
-// Initialize Brevo (formerly Sendinblue) - NO SANDBOX MODE!
-const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
-const apiKey = apiInstance.authentications['apiKey'];
-apiKey.apiKey = process.env.BREVO_API_KEY;
+// Initialize Resend API
+const resend = new Resend(process.env.RESEND_API_KEY);
 
-console.log('✅ Brevo API initialized (NO SANDBOX MODE - send to ANY email!)');
-console.log('🔐 BREVO_API_KEY:', process.env.BREVO_API_KEY ? 'SET ✅' : 'NOT SET ❌');
-console.log('🎁 FREE: 300 emails/day - No recipient verification needed!');
+console.log('✅ Resend API initialized');
+console.log('🔐 RESEND_API_KEY:', process.env.RESEND_API_KEY ? 'SET ✅' : 'NOT SET ❌');
+console.log('ℹ️  Note: Free tier requires recipient email verification at https://resend.com/audiences');
 
 const emailService = {
     sendVerificationEmail: async (email, token) => {
@@ -37,27 +35,13 @@ const emailService = {
 
     sendPasswordResetEmail: async (email, token) => {
         try {
-            console.log('📧 Sending reset password email via Brevo...');
+            console.log('📧 Sending reset password email via Resend...');
             console.log('📧 To:', email);
-            console.log('✅ No sandbox mode - can send to ANY email without verification!');
             
             const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
             const resetLink = `${frontendUrl}/password-baru?token=${token}`;
             
             console.log('🔗 Reset link:', resetLink);
-            
-            const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
-            
-            sendSmtpEmail.subject = '🔐 Reset Password - Quiz Master';
-            sendSmtpEmail.sender = { 
-                name: 'Quiz Master', 
-                email: process.env.BREVO_SENDER_EMAIL || 'noreply@quiz-master.com' 
-            };
-            sendSmtpEmail.to = [{ email: email }];
-            sendSmtpEmail.replyTo = { 
-                email: 'noreply@quiz-master.com', 
-                name: 'Quiz Master' 
-            };
             sendSmtpEmail.htmlContent = `
 <!DOCTYPE html>
 <html lang="id">
@@ -72,7 +56,11 @@ const emailService = {
             <td style="padding: 40px 0; text-align: center;">
                 <table role="presentation" style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                     <tr>
-                        <td style="padding: 40px 40px 20px; text-align: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px 8px 0 0;">
+            const { data, error } = await resend.emails.send({
+                from: 'Quiz Master <onboarding@resend.dev>',
+                to: [email],
+                subject: '🔐 Reset Password - Quiz Master',
+                html:ing: 40px 40px 20px; text-align: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px 8px 0 0;">
                             <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 600;">🔐 Reset Password</h1>
                         </td>
                     </tr>
@@ -126,17 +114,22 @@ const emailService = {
                 </table>
             </td>
         </tr>
-    </table>
-</body>
-</html>
-            `;
+            });
             
-            const response = await apiInstance.sendTransacEmail(sendSmtpEmail);
+            if (error) {
+                console.error('❌ Resend API error:', error);
+                if (error.message && error.message.includes('not found')) {
+                    throw new Error(`Email ${email} belum diverifikasi di Resend. Silakan tambahkan email di https://resend.com/audiences`);
+                }
+                throw new Error('Resend API error: ' + error.message);
+            }
             
-            console.log('✅ Password reset email sent successfully via Brevo!');
-            console.log('📧 Message ID:', response.messageId);
-            console.log('📧 To:', email);
+            console.log('✅ Password reset email sent successfully!');
+            console.log('📧 Email ID:', data.id);
+            return data;
             
+        } catch (error) {
+            console.error('❌ Error sending reset password email
             return response;
             
         } catch (error) {

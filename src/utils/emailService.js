@@ -43,6 +43,8 @@ const emailService = {
             console.log('🔗 Reset link:', resetLink);
             
             console.log('📤 Sending email via Resend HTTPS API (no SMTP!)...');
+            console.log('⚠️  NOTE: Resend FREE tier (sandbox mode) hanya bisa kirim ke email yang sudah diverifikasi di Resend Dashboard');
+            console.log('⚠️  Untuk kirim ke email mana saja, verify domain custom di: https://resend.com/domains');
             
             const { data, error } = await resend.emails.send({
                 from: 'Quiz Master <onboarding@resend.dev>',
@@ -140,6 +142,16 @@ const emailService = {
             
             if (error) {
                 console.error('❌ Resend API error:', error);
+                
+                // Jika error karena sandbox mode (email belum diverifikasi)
+                if (error.message && (error.message.includes('not verified') || error.message.includes('sandbox'))) {
+                    console.error('⚠️  SANDBOX MODE ERROR: Email tujuan belum diverifikasi di Resend!');
+                    console.error('⚠️  SOLUSI 1: Tambahkan email di Resend Dashboard → Audience → Add Email');
+                    console.error('⚠️  SOLUSI 2: Verify domain custom di Resend Dashboard → Domains (RECOMMENDED untuk production)');
+                    console.error('⚠️  Link: https://resend.com/domains');
+                    throw new Error(`Email tidak dapat dikirim ke ${email}. Resend dalam mode sandbox hanya bisa mengirim ke email yang sudah diverifikasi. Silakan tambahkan email di Resend Dashboard (https://resend.com/audiences) atau verify domain custom.`);
+                }
+                
                 throw new Error('Resend API error: ' + error.message);
             }
             

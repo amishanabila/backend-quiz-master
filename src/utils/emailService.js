@@ -1,23 +1,17 @@
-const nodemailer = require('nodemailer');
+const sgMail = require('@sendgrid/mail');
 
-// Initialize Gmail transporter with App Password
-const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-        user: process.env.GMAIL_USER,
-        pass: process.env.GMAIL_APP_PASSWORD
-    }
-});
+// Initialize SendGrid with API Key
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
-console.log('✅ Gmail transporter initialized');
-console.log('📧 GMAIL_USER:', process.env.GMAIL_USER ? 'SET ✅' : 'NOT SET ❌');
-console.log('🔐 GMAIL_APP_PASSWORD:', process.env.GMAIL_APP_PASSWORD ? 'SET ✅' : 'NOT SET ❌');
-console.log('ℹ️  Using Gmail with App Password - can send to ANY email!');
+console.log('✅ SendGrid initialized (HTTPS API - Railway compatible!)');
+console.log('🔐 SENDGRID_API_KEY:', process.env.SENDGRID_API_KEY ? 'SET ✅' : 'NOT SET ❌');
+console.log('📧 SENDGRID_SENDER_EMAIL:', process.env.SENDGRID_SENDER_EMAIL || 'NOT SET (will use default)');
+console.log('🎁 FREE: 100 emails/day - Can send to ANY email after sender verification!');
 
 const emailService = {
     sendPasswordResetEmail: async (email, token) => {
         try {
-            console.log('📧 Sending reset password email via Gmail...');
+            console.log('📧 Sending reset password email via SendGrid...');
             console.log('📧 To:', email);
             
             const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
@@ -25,9 +19,9 @@ const emailService = {
             
             console.log('🔗 Reset link:', resetLink);
             
-            const mailOptions = {
-                from: `Quiz Master <${process.env.GMAIL_USER}>`,
+            const msg = {
                 to: email,
+                from: process.env.SENDGRID_SENDER_EMAIL || 'noreply@quizmaster.com',
                 subject: '🔐 Reset Password - Quiz Master',
                 html: `
 <!DOCTYPE html>
@@ -103,12 +97,12 @@ const emailService = {
                 `
             };
             
-            const info = await transporter.sendMail(mailOptions);
+            const response = await sgMail.send(msg);
             
-            console.log('✅ Password reset email sent successfully via Gmail!');
-            console.log('📧 Message ID:', info.messageId);
-            console.log('📧 Response:', info.response);
-            return info;
+            console.log('✅ Password reset email sent successfully via SendGrid!');
+            console.log('📧 Status Code:', response[0].statusCode);
+            console.log('📧 Response:', response[0].headers);
+            return response;
             
         } catch (error) {
             console.error('❌ Error sending reset password email:', error);

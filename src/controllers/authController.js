@@ -166,10 +166,12 @@ const authController = {
   // Request password reset
   async resetPasswordRequest(req, res) {
     try {
+      console.log('🔄 Reset password request received for email:', req.body.email);
       const { email } = req.body;
 
       // Validasi input
       if (!email) {
+        console.log('❌ Email validation failed - empty email');
         return res.status(400).json({
           status: 'error',
           message: 'Email wajib diisi'
@@ -177,12 +179,14 @@ const authController = {
       }
 
       // Check if user exists
+      console.log('🔍 Checking if user exists in database...');
       const [users] = await db.query(
         'SELECT * FROM users WHERE email = ?',
         [email]
       );
 
       if (users.length === 0) {
+        console.log('❌ Email not found in database:', email);
         return res.status(404).json({
           status: 'error',
           message: 'Email tidak terdaftar'
@@ -190,32 +194,60 @@ const authController = {
       }
 
       const user = users[0];
+      console.log('✅ User found:', { id: user.id, email: user.email });
 
       // Generate reset token (expires in 1 hour)
+      console.log('🔐 Generating reset token...');
       const resetToken = jwt.sign(
         { id: user.id },
         process.env.JWT_SECRET,
         { expiresIn: '1h' }
       );
+      console.log('✅ Reset token generated');
 
       // Save reset token to database
+      console.log('💾 Saving reset token to database...');
       await db.query(
         'UPDATE users SET reset_token = ? WHERE id = ?',
         [resetToken, user.id]
       );
+      console.log('✅ Reset token saved to database');
 
       // Send reset email
+      console.log('📧 Attempting to send reset password email...');
+      console.log('📧 Email config check:', {
+        EMAIL_USER: process.env.EMAIL_USER ? '✅ Set' : '❌ Not set',
+        EMAIL_PASSWORD: process.env.EMAIL_PASSWORD ? '✅ Set' : '❌ Not set',
+        FRONTEND_URL: process.env.FRONTEND_URL || 'Using default'
+      });
+      
       await emailService.sendPasswordResetEmail(email, resetToken);
+      console.log('✅ Reset password email sent successfully to:', email);
 
       res.json({
         status: 'success',
         message: 'Email reset password telah dikirim'
       });
     } catch (error) {
-      console.error('Reset password request error:', error);
+      console.error('❌ Reset password request error:', error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        stack: error.stack
+      });
+      
+      // Check if it's an email sending error
+      if (error.message && error.message.includes('email')) {
+        return res.status(500).json({
+          status: 'error',
+          message: 'Gagal mengirim email. Silakan coba lagi atau hubungi administrator.',
+          details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
+      }
+      
       res.status(500).json({
         status: 'error',
-        message: 'Terjadi kesalahan saat memproses permintaan reset password'
+        message: 'Terjadi kesalahan saat memproses permintaan reset password',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
   },

@@ -1,33 +1,10 @@
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 
-let transporter;
+// Use Resend API (HTTPS) instead of SMTP - Railway-friendly!
+const resend = new Resend(process.env.RESEND_API_KEY);
 
-try {
-    // Use port 465 (SSL) as Railway might block port 587
-    transporter = nodemailer.createTransport({
-        host: 'smtp.gmail.com',
-        port: 465, // Use 465 (SSL) - more reliable for Railway
-        secure: true, // true for 465
-        auth: {
-            user: process.env.EMAIL_USER,
-            pass: process.env.EMAIL_PASSWORD
-        },
-        tls: {
-            rejectUnauthorized: false
-        },
-        connectionTimeout: 15000, // 15 seconds
-        greetingTimeout: 15000,
-        socketTimeout: 15000,
-        pool: true, // Use pooled connections
-        maxConnections: 5,
-        maxMessages: 10,
-        debug: true,
-        logger: true
-    });
-    console.log('✅ Email transporter created with SSL port 465');
-} catch (error) {
-    console.error('❌ Error creating email transporter:', error);
-}
+console.log('✅ Resend API initialized (no SMTP - Railway compatible!)');
+console.log('🔐 RESEND_API_KEY:', process.env.RESEND_API_KEY ? 'SET ✅' : 'NOT SET ❌');
 
 const emailService = {
     sendVerificationEmail: async (email, token) => {
@@ -57,18 +34,19 @@ const emailService = {
 
     sendPasswordResetEmail: async (email, token) => {
         try {
-            console.log('📧 Preparing to send password reset email...');
+            console.log('📧 Preparing to send password reset email via Resend API...');
             console.log('📧 To:', email);
-            console.log('📧 From:', process.env.EMAIL_USER);
             
             const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
             const resetLink = `${frontendUrl}/password-baru?token=${token}`;
             
             console.log('🔗 Reset link:', resetLink);
             
-            const mailOptions = {
-                from: `"IPPL Quiz Master" <${process.env.EMAIL_USER}>`,
-                to: email,
+            console.log('📤 Sending email via Resend HTTPS API (no SMTP!)...');
+            
+            const { data, error } = await resend.emails.send({
+                from: 'IPPL Quiz Master <onboarding@resend.dev>', // Free tier uses resend.dev domain
+                to: [email],
                 subject: 'Reset Password - IPPL Quiz Master',
                 html: `
                     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -90,50 +68,21 @@ const emailService = {
                         </p>
                     </div>
                 `
-            };
-
-            console.log('📤 Sending email via SMTP...');
-            console.log('🔐 EMAIL_USER:', process.env.EMAIL_USER);
-            console.log('🔐 EMAIL_PASSWORD length:', process.env.EMAIL_PASSWORD ? process.env.EMAIL_PASSWORD.length : 0);
+            });
             
-            // Skip verification, send directly (Railway firewall might block verification)
-            console.log('⚠️ Skipping SMTP verification due to Railway network restrictions');
-            console.log('📧 Sending email directly...');
-            
-            // Send email with extended retry and better error handling
-            let lastError;
-            for (let attempt = 1; attempt <= 5; attempt++) {
-                try {
-                    console.log(`📧 Attempt ${attempt}/5 to send email...`);
-                    const info = await transporter.sendMail(mailOptions);
-                    console.log('✅ Password reset email sent successfully!');
-                    console.log('📧 Message ID:', info.messageId);
-                    console.log('📧 Response:', info.response);
-                    console.log('📧 Accepted:', info.accepted);
-                    console.log('📧 Rejected:', info.rejected);
-                    return; // Success!
-                } catch (sendError) {
-                    console.error(`❌ Attempt ${attempt} failed:`, sendError.message);
-                    console.error(`❌ Error code:`, sendError.code);
-                    console.error(`❌ Error command:`, sendError.command);
-                    lastError = sendError;
-                    
-                    if (attempt < 5) {
-                        const waitTime = attempt * 3000; // Progressive backoff: 3s, 6s, 9s, 12s
-                        console.log(`⏳ Waiting ${waitTime/1000} seconds before retry...`);
-                        await new Promise(resolve => setTimeout(resolve, waitTime));
-                    }
-                }
+            if (error) {
+                console.error('❌ Resend API error:', error);
+                throw new Error('Resend API error: ' + error.message);
             }
             
-            // All attempts failed
-            console.error('❌ All 5 attempts failed to send email');
-            throw lastError;
+            console.log('✅ Password reset email sent successfully via Resend!');
+            console.log('📧 Email ID:', data.id);
+            console.log('📧 From:', data.from);
+            console.log('📧 To:', data.to);
+            return data;
             
         } catch (error) {
             console.error('❌ Error sending reset password email:', error);
-            console.error('❌ Error code:', error.code);
-            console.error('❌ Error command:', error.command);
             throw new Error('Gagal mengirim email reset password: ' + error.message);
         }
     }

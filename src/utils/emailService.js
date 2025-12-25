@@ -1,16 +1,23 @@
-const { Resend } = require('resend');
+const nodemailer = require('nodemailer');
 
-// Initialize Resend API
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Initialize Gmail transporter with App Password
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.GMAIL_USER,
+        pass: process.env.GMAIL_APP_PASSWORD
+    }
+});
 
-console.log('✅ Resend API initialized');
-console.log('🔐 RESEND_API_KEY:', process.env.RESEND_API_KEY ? 'SET ✅' : 'NOT SET ❌');
-console.log('ℹ️  Note: Free tier requires recipient email verification at https://resend.com/audiences');
+console.log('✅ Gmail transporter initialized');
+console.log('📧 GMAIL_USER:', process.env.GMAIL_USER ? 'SET ✅' : 'NOT SET ❌');
+console.log('🔐 GMAIL_APP_PASSWORD:', process.env.GMAIL_APP_PASSWORD ? 'SET ✅' : 'NOT SET ❌');
+console.log('ℹ️  Using Gmail with App Password - can send to ANY email!');
 
 const emailService = {
     sendPasswordResetEmail: async (email, token) => {
         try {
-            console.log('📧 Sending reset password email via Resend...');
+            console.log('📧 Sending reset password email via Gmail...');
             console.log('📧 To:', email);
             
             const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
@@ -18,9 +25,9 @@ const emailService = {
             
             console.log('🔗 Reset link:', resetLink);
             
-            const { data, error } = await resend.emails.send({
-                from: 'Quiz Master <onboarding@resend.dev>',
-                to: [email],
+            const mailOptions = {
+                from: `Quiz Master <${process.env.GMAIL_USER}>`,
+                to: email,
                 subject: '🔐 Reset Password - Quiz Master',
                 html: `
 <!DOCTYPE html>
@@ -94,19 +101,14 @@ const emailService = {
 </body>
 </html>
                 `
-            });
+            };
             
-            if (error) {
-                console.error('❌ Resend API error:', error);
-                if (error.message && error.message.includes('not found')) {
-                    throw new Error('Email ' + email + ' belum diverifikasi di Resend. Silakan tambahkan email di https://resend.com/audiences');
-                }
-                throw new Error('Resend API error: ' + error.message);
-            }
+            const info = await transporter.sendMail(mailOptions);
             
-            console.log('✅ Password reset email sent successfully!');
-            console.log('📧 Email ID:', data.id);
-            return data;
+            console.log('✅ Password reset email sent successfully via Gmail!');
+            console.log('📧 Message ID:', info.messageId);
+            console.log('📧 Response:', info.response);
+            return info;
             
         } catch (error) {
             console.error('❌ Error sending reset password email:', error);

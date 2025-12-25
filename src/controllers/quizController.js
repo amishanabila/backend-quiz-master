@@ -218,7 +218,7 @@ const quizController = {
 
           // Get soal
           const [soal] = await connection.query(
-            `SELECT soal_id, pertanyaan, gambar, pilihan_a, pilihan_b, pilihan_c, pilihan_d, pilihan_e, jawaban_benar, variasi_jawaban 
+            `SELECT soal_id, pertanyaan, gambar, pilihan_a, pilihan_b, pilihan_c, pilihan_d, jawaban_benar, variasi_jawaban 
              FROM soal 
              WHERE kumpulan_soal_id = ?
              ORDER BY soal_id`,
@@ -287,7 +287,7 @@ const quizController = {
 
       // Get soal
       const [soal] = await connection.query(
-        `SELECT soal_id, pertanyaan, gambar, pilihan_a, pilihan_b, pilihan_c, pilihan_d, pilihan_e, jawaban_benar, variasi_jawaban 
+        `SELECT soal_id, pertanyaan, gambar, pilihan_a, pilihan_b, pilihan_c, pilihan_d, jawaban_benar, variasi_jawaban 
          FROM soal 
          WHERE kumpulan_soal_id = ?
          ORDER BY soal_id`,

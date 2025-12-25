@@ -8,31 +8,6 @@ console.log('🔐 RESEND_API_KEY:', process.env.RESEND_API_KEY ? 'SET ✅' : 'NO
 console.log('ℹ️  Note: Free tier requires recipient email verification at https://resend.com/audiences');
 
 const emailService = {
-    sendVerificationEmail: async (email, token) => {
-        try {
-            const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-            const verificationLink = `${frontendUrl}/verify-email?token=${token}`;
-            
-            const mailOptions = {
-                from: process.env.EMAIL_USER,
-                to: email,
-                subject: 'Verifikasi Email QuizMaster',
-                html: `
-                    <h1>Selamat Datang di QuizMaster!</h1>
-                    <p>Silakan klik link di bawah ini untuk memverifikasi email Anda:</p>
-                    <a href="${verificationLink}">${verificationLink}</a>
-                    <p>Link ini akan kadaluarsa dalam 24 jam.</p>
-                `
-            };
-
-            await transporter.sendMail(mailOptions);
-            console.log('Verification email sent to:', email);
-        } catch (error) {
-            console.error('Error sending verification email:', error);
-            throw new Error('Gagal mengirim email verifikasi: ' + error.message);
-        }
-    },
-
     sendPasswordResetEmail: async (email, token) => {
         try {
             console.log('📧 Sending reset password email via Resend...');
@@ -42,7 +17,12 @@ const emailService = {
             const resetLink = `${frontendUrl}/password-baru?token=${token}`;
             
             console.log('🔗 Reset link:', resetLink);
-            sendSmtpEmail.htmlContent = `
+            
+            const { data, error } = await resend.emails.send({
+                from: 'Quiz Master <onboarding@resend.dev>',
+                to: [email],
+                subject: '🔐 Reset Password - Quiz Master',
+                html: `
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -56,11 +36,7 @@ const emailService = {
             <td style="padding: 40px 0; text-align: center;">
                 <table role="presentation" style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                     <tr>
-            const { data, error } = await resend.emails.send({
-                from: 'Quiz Master <onboarding@resend.dev>',
-                to: [email],
-                subject: '🔐 Reset Password - Quiz Master',
-                html:ing: 40px 40px 20px; text-align: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px 8px 0 0;">
+                        <td style="padding: 40px 40px 20px; text-align: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px 8px 0 0;">
                             <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 600;">🔐 Reset Password</h1>
                         </td>
                     </tr>
@@ -114,12 +90,16 @@ const emailService = {
                 </table>
             </td>
         </tr>
+    </table>
+</body>
+</html>
+                `
             });
             
             if (error) {
                 console.error('❌ Resend API error:', error);
                 if (error.message && error.message.includes('not found')) {
-                    throw new Error(`Email ${email} belum diverifikasi di Resend. Silakan tambahkan email di https://resend.com/audiences`);
+                    throw new Error('Email ' + email + ' belum diverifikasi di Resend. Silakan tambahkan email di https://resend.com/audiences');
                 }
                 throw new Error('Resend API error: ' + error.message);
             }
@@ -129,11 +109,7 @@ const emailService = {
             return data;
             
         } catch (error) {
-            console.error('❌ Error sending reset password email
-            return response;
-            
-        } catch (error) {
-            console.error('❌ Error sending reset password email via Brevo:', error);
+            console.error('❌ Error sending reset password email:', error);
             throw new Error('Gagal mengirim email reset password: ' + error.message);
         }
     }

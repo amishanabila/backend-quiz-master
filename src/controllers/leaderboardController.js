@@ -15,17 +15,24 @@ exports.getLeaderboard = async (req, res) => {
       });
     }
 
-    // Simplified SQL query - GROUP BY hanya nama_peserta untuk consistency
+    // Updated SQL query - Include detail fields for frontend display
     let query = `
       SELECT 
+        hq.hasil_id,
         hq.nama_peserta,
-        SUM(hq.jawaban_benar) as jumlah_benar,
-        SUM(hq.total_soal) as jumlah_jawaban,
-        AVG(hq.skor) as rata_rata_skor,
-        AVG(hq.waktu_pengerjaan) as rata_waktu,
-        COUNT(DISTINCT hq.hasil_id) as total_quiz_diikuti
+        hq.skor,
+        hq.jawaban_benar,
+        hq.total_soal,
+        hq.waktu_pengerjaan,
+        hq.completed_at,
+        hq.pin_code,
+        k.nama_kategori as kategori,
+        m.judul as materi,
+        ks.judul as kumpulan_soal_judul
       FROM hasil_quiz hq
       JOIN kumpulan_soal ks ON hq.kumpulan_soal_id = ks.kumpulan_soal_id
+      LEFT JOIN kategori k ON ks.kategori_id = k.id
+      LEFT JOIN materi m ON ks.materi_id = m.materi_id
       WHERE hq.completed_at IS NOT NULL
         AND ks.created_by = ?
     `;
@@ -52,30 +59,18 @@ exports.getLeaderboard = async (req, res) => {
     }
     
     query += `
-      GROUP BY hq.nama_peserta
-      ORDER BY jumlah_benar DESC, rata_rata_skor DESC
+      ORDER BY hq.skor DESC, hq.jawaban_benar DESC, hq.waktu_pengerjaan ASC
       LIMIT 100
     `;
     
     const [rows] = await db.query(query, params);
     const results = rows || [];
-    
-    // Format data untuk match frontend expectations
-    const formattedResults = results.map(r => ({
-      nama_peserta: r.nama_peserta,
-      skor: Math.round(r.rata_rata_skor || 0),
-      jawaban_benar: r.jumlah_benar || 0,
-      total_soal: r.jumlah_jawaban || 0,
-      waktu_pengerjaan: Math.round(r.rata_waktu || 0),
-      skor_persen: r.jumlah_jawaban > 0 ? Math.round((r.jumlah_benar / r.jumlah_jawaban) * 100) : 0,
-      total_quiz_diikuti: r.total_quiz_diikuti || 0
-    }));
 
-    console.log('✅ Found', formattedResults.length, 'leaderboard entries');
+    console.log('✅ Found', results.length, 'leaderboard entries');
 
     res.json({
       status: 'success',
-      data: formattedResults,
+      data: results,
       filters: {
         kategori_id: kategori_id || null,
         materi_id: materi_id || null,
@@ -251,6 +246,39 @@ exports.resetLeaderboardByKumpulanSoal = async (req, res) => {
     });
   } catch (error) {
     console.error('Error resetting leaderboard:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Terjadi kesalahan saat reset leaderboard'
+    });
+  }
+};
+
+// Reset ALL leaderboard for kreator's own quizzes (kreator only)
+exports.resetLeaderboardByCreator = async (req, res) => {
+  try {
+    const userId = req.user.userId || req.user.id;
+
+    console.log('🗑️ Kreator resetting all their leaderboard data. User ID:', userId);
+
+    // Delete all quiz_session for this kreator's kumpulan_soal (cascade delete hasil_quiz & user_answers)
+    const [deleteResult] = await db.query(
+      `DELETE qs FROM quiz_session qs
+       INNER JOIN kumpulan_soal ks ON qs.kumpulan_soal_id = ks.kumpulan_soal_id
+       WHERE ks.created_by = ?`,
+      [userId]
+    );
+
+    console.log('✅ Deleted sessions:', deleteResult.affectedRows);
+
+    res.json({
+      status: 'success',
+      message: `Semua leaderboard Anda berhasil direset. ${deleteResult.affectedRows} session dihapus.`,
+      data: {
+        sessions_deleted: deleteResult.affectedRows
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error resetting kreator leaderboard:', error);
     res.status(500).json({
       status: 'error',
       message: 'Terjadi kesalahan saat reset leaderboard'

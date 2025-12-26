@@ -18,6 +18,9 @@ router.get('/sessions', authenticateToken, leaderboardController.getQuizSessions
 // Reset leaderboard for specific kumpulan_soal (kreator only)
 router.delete('/reset/:kumpulan_soal_id', authenticateToken, isKreator, leaderboardController.resetLeaderboardByKumpulanSoal);
 
+// Reset ALL leaderboard for kreator's own quizzes (kreator only)
+router.delete('/reset-my-quizzes', authenticateToken, isKreator, leaderboardController.resetLeaderboardByCreator);
+
 // Reset all leaderboard (admin only)
 router.delete('/reset', authenticateToken, isAdmin, leaderboardController.resetLeaderboard);
 

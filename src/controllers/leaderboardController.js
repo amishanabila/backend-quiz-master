@@ -1,5 +1,115 @@
 const db = require('../config/db');
 
+// Ensure we have a place to record leaderboard resets (soft reset markers)
+const ensureLeaderboardResetTable = async () => {
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS leaderboard_resets (
+      reset_id INT AUTO_INCREMENT PRIMARY KEY,
+      created_by INT NULL,
+      kategori_id INT NULL,
+      materi_id INT NULL,
+      kumpulan_soal_id INT NULL,
+      reset_scope VARCHAR(50) NOT NULL,
+      reset_by INT NOT NULL,
+      reset_role VARCHAR(20) NOT NULL,
+      reset_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_created_by (created_by),
+      INDEX idx_scope (reset_scope),
+      INDEX idx_kategori (kategori_id),
+      INDEX idx_materi (materi_id),
+      INDEX idx_kumpulan (kumpulan_soal_id),
+      INDEX idx_reset_at (reset_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  `);
+};
+
+// Build correlated subquery that returns the latest reset timestamp affecting a quiz result
+const buildResetCutoffSubquery = (hqAlias = 'hq', ksAlias = 'ks') => `
+  SELECT MAX(lr.reset_at)
+  FROM leaderboard_resets lr
+  WHERE (lr.created_by IS NULL OR lr.created_by = ${ksAlias}.created_by)
+    AND (lr.kumpulan_soal_id IS NULL OR lr.kumpulan_soal_id = ${hqAlias}.kumpulan_soal_id)
+    AND (lr.materi_id IS NULL OR lr.materi_id = ${ksAlias}.materi_id)
+    AND (lr.kategori_id IS NULL OR lr.kategori_id = ${ksAlias}.kategori_id)
+`;
+
+const getResetScopeLabel = (filters = {}) => {
+  if (filters.kumpulan_soal_id) return 'kumpulan_soal';
+  if (filters.materi_id) return 'materi';
+  if (filters.kategori_id) return 'kategori';
+  if (filters.created_by) return 'creator';
+  return 'all';
+};
+
+const recordResetMarker = async ({ filters = {}, resetBy, resetRole }) => {
+  await ensureLeaderboardResetTable();
+
+  const scope = getResetScopeLabel(filters);
+
+  await db.query(
+    `INSERT INTO leaderboard_resets (created_by, kategori_id, materi_id, kumpulan_soal_id, reset_scope, reset_by, reset_role)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [
+      filters.created_by || null,
+      filters.kategori_id || null,
+      filters.materi_id || null,
+      filters.kumpulan_soal_id || null,
+      scope,
+      resetBy,
+      resetRole || 'unknown'
+    ]
+  );
+
+  return scope;
+};
+
+const buildLeaderboardFilter = (filters = {}, includeResetWindow = true) => {
+  const clauses = ['hq.completed_at IS NOT NULL'];
+  const params = [];
+
+  if (filters.created_by) {
+    clauses.push('ks.created_by = ?');
+    params.push(filters.created_by);
+  }
+
+  if (filters.kategori_id) {
+    clauses.push('ks.kategori_id = ?');
+    params.push(filters.kategori_id);
+  }
+
+  if (filters.materi_id) {
+    clauses.push('ks.materi_id = ?');
+    params.push(filters.materi_id);
+  }
+
+  if (filters.kumpulan_soal_id) {
+    clauses.push('hq.kumpulan_soal_id = ?');
+    params.push(filters.kumpulan_soal_id);
+  }
+
+  if (includeResetWindow) {
+    const cutoffSubquery = buildResetCutoffSubquery('hq', 'ks');
+    clauses.push(`hq.completed_at > COALESCE((${cutoffSubquery}), '1970-01-01')`);
+  }
+
+  return { clauses, params };
+};
+
+const countVisibleLeaderboardRows = async (filters = {}) => {
+  const { clauses, params } = buildLeaderboardFilter(filters, true);
+  const whereClause = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
+
+  const [rows] = await db.query(
+    `SELECT COUNT(*) as total
+     FROM hasil_quiz hq
+     JOIN kumpulan_soal ks ON hq.kumpulan_soal_id = ks.kumpulan_soal_id
+     ${whereClause}`,
+    params
+  );
+
+  return rows?.[0]?.total || 0;
+};
+
 // Get leaderboard data - MUST filter by created_by for data isolation
 exports.getLeaderboard = async (req, res) => {
   try {
@@ -14,6 +124,10 @@ exports.getLeaderboard = async (req, res) => {
         message: 'created_by parameter is required for data security'
       });
     }
+
+    await ensureLeaderboardResetTable();
+
+    const resetCutoffSubquery = buildResetCutoffSubquery('hq', 'ks');
 
     // Updated SQL query - Include detail fields for frontend display
     let query = `
@@ -35,6 +149,7 @@ exports.getLeaderboard = async (req, res) => {
       LEFT JOIN materi m ON ks.materi_id = m.materi_id
       WHERE hq.completed_at IS NOT NULL
         AND ks.created_by = ?
+        AND hq.completed_at > COALESCE((${resetCutoffSubquery}), '1970-01-01')
     `;
     
     const params = [created_by];
@@ -66,7 +181,7 @@ exports.getLeaderboard = async (req, res) => {
     const [rows] = await db.query(query, params);
     const results = rows || [];
 
-    console.log('✅ Found', results.length, 'leaderboard entries');
+    console.log('✅ Found', results.length, 'leaderboard entries (after reset window)');
 
     res.json({
       status: 'success',
@@ -100,13 +215,20 @@ exports.getKategoriWithStats = async (req, res) => {
         message: 'created_by parameter is required'
       });
     }
+
+    await ensureLeaderboardResetTable();
+    const resetCutoffSubquery = buildResetCutoffSubquery('ha', 'ks');
     
     const [results] = await db.query(`
       SELECT 
         k.id as kategori_id,
         k.nama_kategori,
         COUNT(DISTINCT ks.kumpulan_soal_id) as total_kumpulan_soal,
-        COUNT(DISTINCT ha.hasil_id) as total_hasil
+        COUNT(DISTINCT CASE 
+          WHEN ha.completed_at IS NOT NULL 
+            AND ha.completed_at > COALESCE((${resetCutoffSubquery}), '1970-01-01')
+          THEN ha.hasil_id END
+        ) as total_hasil
       FROM kategori k
       LEFT JOIN kumpulan_soal ks ON k.id = ks.kategori_id AND ks.created_by = ?
       LEFT JOIN hasil_quiz ha ON ks.kumpulan_soal_id = ha.kumpulan_soal_id
@@ -142,6 +264,9 @@ exports.getMateriByKategori = async (req, res) => {
       });
     }
     
+    await ensureLeaderboardResetTable();
+    const resetCutoffSubquery = buildResetCutoffSubquery('ha', 'ks');
+
     let query = `
       SELECT 
         m.materi_id,
@@ -149,7 +274,11 @@ exports.getMateriByKategori = async (req, res) => {
         k.nama_kategori,
         k.id as kategori_id,
         COUNT(DISTINCT ks.kumpulan_soal_id) as total_kumpulan_soal,
-        COUNT(DISTINCT ha.hasil_id) as total_hasil
+        COUNT(DISTINCT CASE 
+          WHEN ha.completed_at IS NOT NULL 
+            AND ha.completed_at > COALESCE((${resetCutoffSubquery}), '1970-01-01')
+          THEN ha.hasil_id END
+        ) as total_hasil
       FROM materi m
       JOIN kategori k ON m.kategori_id = k.id
       LEFT JOIN kumpulan_soal ks ON m.materi_id = ks.materi_id AND ks.created_by = ?
@@ -187,13 +316,30 @@ exports.getMateriByKategori = async (req, res) => {
 // Reset leaderboard (delete all data from hasil_quiz)
 exports.resetLeaderboard = async (req, res) => {
   try {
-    const [result] = await db.query('DELETE FROM hasil_quiz');
+    await ensureLeaderboardResetTable();
+
+    const { kategori_id, materi_id, kumpulan_soal_id, created_by } = req.body || {};
+    const filters = {
+      kategori_id: kategori_id || null,
+      materi_id: materi_id || null,
+      kumpulan_soal_id: kumpulan_soal_id || null,
+      created_by: created_by || null
+    };
+
+    const affected = await countVisibleLeaderboardRows(filters);
+    const scope = await recordResetMarker({
+      filters,
+      resetBy: req.user?.id || req.user?.userId,
+      resetRole: req.user?.role || 'admin'
+    });
 
     res.json({
       status: 'success',
-      message: 'Leaderboard berhasil direset',
+      message: 'Leaderboard berhasil dibersihkan. Data historis tetap aman.',
       data: {
-        deletedRows: result.affectedRows
+        scope,
+        hiddenRows: affected,
+        filters
       }
     });
   } catch (error) {
@@ -213,7 +359,7 @@ exports.resetLeaderboardByKumpulanSoal = async (req, res) => {
 
     // Verify kreator owns this kumpulan_soal
     const [kumpulanSoal] = await db.query(
-      'SELECT created_by FROM kumpulan_soal WHERE kumpulan_soal_id = ?',
+      'SELECT created_by, kategori_id, materi_id FROM kumpulan_soal WHERE kumpulan_soal_id = ?',
       [kumpulan_soal_id]
     );
 
@@ -231,17 +377,29 @@ exports.resetLeaderboardByKumpulanSoal = async (req, res) => {
       });
     }
 
-    // Delete quiz_session (akan cascade delete hasil_quiz & user_answers)
-    const [deleteResult] = await db.query(
-      'DELETE FROM quiz_session WHERE kumpulan_soal_id = ?',
-      [kumpulan_soal_id]
-    );
+    await ensureLeaderboardResetTable();
+
+    const filters = {
+      created_by: userId,
+      kumpulan_soal_id,
+      kategori_id: kumpulanSoal[0].kategori_id || null,
+      materi_id: kumpulanSoal[0].materi_id || null
+    };
+
+    const affected = await countVisibleLeaderboardRows(filters);
+    const scope = await recordResetMarker({
+      filters,
+      resetBy: userId,
+      resetRole: req.user?.role || 'kreator'
+    });
 
     res.json({
       status: 'success',
-      message: `Leaderboard berhasil direset. ${deleteResult.affectedRows} session dihapus.`,
+      message: 'Leaderboard untuk kumpulan soal ini dibersihkan tanpa menghapus data historis.',
       data: {
-        sessions_deleted: deleteResult.affectedRows
+        scope,
+        hiddenRows: affected,
+        filters
       }
     });
   } catch (error) {
@@ -259,22 +417,31 @@ exports.resetLeaderboardByCreator = async (req, res) => {
     const userId = req.user.userId || req.user.id;
 
     console.log('🗑️ Kreator resetting all their leaderboard data. User ID:', userId);
+    await ensureLeaderboardResetTable();
 
-    // Delete all quiz_session for this kreator's kumpulan_soal (cascade delete hasil_quiz & user_answers)
-    const [deleteResult] = await db.query(
-      `DELETE qs FROM quiz_session qs
-       INNER JOIN kumpulan_soal ks ON qs.kumpulan_soal_id = ks.kumpulan_soal_id
-       WHERE ks.created_by = ?`,
-      [userId]
-    );
+    const { kategori_id, materi_id, kumpulan_soal_id } = req.body || {};
 
-    console.log('✅ Deleted sessions:', deleteResult.affectedRows);
+    const filters = {
+      created_by: userId,
+      kategori_id: kategori_id || null,
+      materi_id: materi_id || null,
+      kumpulan_soal_id: kumpulan_soal_id || null
+    };
+
+    const affected = await countVisibleLeaderboardRows(filters);
+    const scope = await recordResetMarker({
+      filters,
+      resetBy: userId,
+      resetRole: req.user?.role || 'kreator'
+    });
 
     res.json({
       status: 'success',
-      message: `Semua leaderboard Anda berhasil direset. ${deleteResult.affectedRows} session dihapus.`,
+      message: 'Leaderboard Anda dibersihkan sesuai filter. Data lama tetap tersimpan.',
       data: {
-        sessions_deleted: deleteResult.affectedRows
+        scope,
+        hiddenRows: affected,
+        filters
       }
     });
   } catch (error) {
